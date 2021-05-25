@@ -1,0 +1,24 @@
+syntax = "proto3";
+package tunframe;
+
+option go_package = "/tunframe";
+
+message TunnelFrame {
+  enum MessageType {
+    HTTP_REQ = 0;
+    HTTP_RESP = 1;
+    WS_MSG = 2;
+  }
+  MessageType msg_type  = 1;
+  message StringArray {
+    repeated string items = 1;
+  }
+  map<string, StringArray> headers = 2;
+  map<string, StringArray> params = 3;
+  int64 req_id = 4;
+  int64 corr_id = 5;
+  string req_url = 6;
+  string req_method = 7;
+  int32 resp_code = 8;
+  bytes payload = 9;
+}

@@ -27,14 +27,21 @@ type Server struct {
 	tunMan         *tunnel.Manager
 }
 
+func NewServer(config Config, tunMan *tunnel.Manager) *Server {
+	return &Server{config: config, tunMan: tunMan}
+}
+
 func (serv *Server) Configure() error {
 	var err error
 	log.Info("<HttpConn> Configuring HTTP router.")
 	serv.server = &http.Server{Addr: serv.config.BindAddress}
 	serv.router = mux.NewRouter()
-	serv.router.HandleFunc("/edge/{id}/register", serv.edgeRegistrationHandler)
-	serv.router.HandleFunc("/cloud/{id}/rest", serv.cloudRestHandler)
-	serv.router.HandleFunc("/cloud/{id}/ws", serv.cloudWsHandler)
+	serv.router.HandleFunc("/edge/{id}/register", serv.edgeRegistrationHandler) // WS for connection from edge devices.
+	serv.router.HandleFunc("/cloud/{id}/flow/{flowId}/rest", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
+	serv.router.HandleFunc("/cloud/{id}/flow/{flowId}/ws", serv.cloudWsHandler)     // Endpoint for cloud WS connections.
+	serv.router.HandleFunc("/cloud/{id}/api/registry/{subComp}", serv.cloudHttpHandler)     // Endpoint for cloud WS connections.
+	serv.router.HandleFunc("/cloud/{id}/api/flow/context/{flowId}", serv.cloudHttpHandler)     // Endpoint for cloud WS connections.
+
 	serv.server.Handler = serv.router
 	log.Info("<HttpConn> HTTP router configured ")
 	return err
@@ -61,6 +68,8 @@ func (serv *Server) edgeRegistrationHandler(w http.ResponseWriter, r *http.Reque
 	token := ""
 	ip := ""
 
+	log.Debug("<HttpConn> Registering new edge connection , id = ",edgeConnId)
+
 	authConf := tunnel.AuthConfig{}
 
 	ws, err := brUpgrader.Upgrade(w, r, nil)
@@ -74,7 +83,28 @@ func (serv *Server) edgeRegistrationHandler(w http.ResponseWriter, r *http.Reque
 	serv.tunMan.RegisterEdgeConnection(edgeConnId,ws,token,ip,authConf)
 }
 
-func (serv *Server) cloudRestHandler(w http.ResponseWriter, r *http.Request) {
+func (serv *Server) cloudHttpHandler(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error("<HttpConn> HTTP request failed with PANIC")
+			log.Error(string(debug.Stack()))
+		}
+	}()
+	vars := mux.Vars(r)
+	edgeConnId := vars["id"]
+	if edgeConnId == "" {
+		return
+	}
+
+	tunn,err := serv.tunMan.GetTunnelById(edgeConnId)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+	}
+	err = tunn.SendHttpRequestAndWaitForResponse(w,r)
+	if err != nil {
+		w.WriteHeader(http.StatusBadGateway)
+		w.Write( []byte(err.Error()))
+	}
 
 }
 

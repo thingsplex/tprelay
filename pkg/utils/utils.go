@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-func GenerateRandomNumber() int32 {
+func GenerateRandomNumber() int64 {
 	s1 := rand.NewSource(time.Now().UnixNano())
 	r1 := rand.New(s1)
-	return r1.Int31()
+	return r1.Int63()
 }
