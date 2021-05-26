@@ -37,6 +37,7 @@ func (serv *Server) Configure() error {
 	serv.server = &http.Server{Addr: serv.config.BindAddress}
 	serv.router = mux.NewRouter()
 	serv.router.HandleFunc("/edge/{id}/register", serv.edgeRegistrationHandler) // WS for connection from edge devices.
+	serv.router.HandleFunc("/cloud/{id}/health", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
 	serv.router.HandleFunc("/cloud/{id}/flow/{flowId}/rest", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
 	serv.router.HandleFunc("/cloud/{id}/flow/{flowId}/ws", serv.cloudWsHandler)     // Endpoint for cloud WS connections.
 	serv.router.HandleFunc("/cloud/{id}/api/registry/{subComp}", serv.cloudHttpHandler)     // Endpoint for cloud WS connections.

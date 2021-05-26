@@ -15,10 +15,11 @@ message TunnelFrame {
   }
   map<string, StringArray> headers = 2;
   map<string, StringArray> params = 3;
-  int64 req_id = 4;
-  int64 corr_id = 5;
-  string req_url = 6;
-  string req_method = 7;
-  int32 resp_code = 8;
-  bytes payload = 9;
+  map<string,string> vars = 4;
+  int64 req_id = 5;
+  int64 corr_id = 6;
+  string req_url = 7;
+  string req_method = 8;
+  int32 resp_code = 9;
+  bytes payload = 10;
 }

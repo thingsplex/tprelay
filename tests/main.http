@@ -1,0 +1,6 @@
+POST http://localhost:8083/cloud/edge-dev-1/health
+Content-Type: application/json
+
+{}
+
+###

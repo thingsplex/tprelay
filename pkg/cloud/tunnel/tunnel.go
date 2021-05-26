@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"fmt"
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"github.com/thingsplex/tprelay/pkg/proto/tunframe"
@@ -61,7 +62,7 @@ func (conn *WsTunnel) StartEdgeMsgReader() {
 	for {
 		msgType, msg, err := conn.edgeConnection.ReadMessage() // reading message from Edge devices
 		if err != nil {
-			log.Error("<edgeConn> WS Read error :", err)
+			log.Info("<edgeConn> WS Read error :", err)
 			break
 		}
 		if msgType == websocket.TextMessage {
@@ -85,16 +86,19 @@ func (conn *WsTunnel) StartEdgeMsgReader() {
 					log.Debug("unregistered transaction , id = ",tunMsg.CorrId)
 					continue
 				}
-				trans , ok := tranI.(syncTransaction)
+				trans , ok := tranI.(*syncTransaction)
 				if !ok {
+					log.Error("Can't cast transaction ")
 					continue
 				}
 				trans.responseMsg = &tunMsg
 				trans.responseSignal <- true
+				log.Debug("Response signal was sent")
 
 			case tunframe.TunnelFrame_WS_MSG:
 				//TODO : broadcast to all cloud connections
 				log.Warning("Not implemented")
+				log.Debug(string(tunMsg.Payload))
 			default:
 				log.Info("Unsupported frame type")
 
@@ -134,6 +138,7 @@ func (conn *WsTunnel) SendHttpRequestAndWaitForResponse(w http.ResponseWriter, r
 		MsgType:   tunframe.TunnelFrame_HTTP_REQ,
 		Headers:   headers,
 		Params:    nil,
+		Vars:      mux.Vars(r),
 		ReqId:     reqId,
 		CorrId:    0,
 		ReqUrl:    r.RequestURI,
