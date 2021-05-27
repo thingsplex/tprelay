@@ -36,12 +36,12 @@ func (serv *Server) Configure() error {
 	log.Info("<HttpConn> Configuring HTTP router.")
 	serv.server = &http.Server{Addr: serv.config.BindAddress}
 	serv.router = mux.NewRouter()
-	serv.router.HandleFunc("/edge/{id}/register", serv.edgeRegistrationHandler) // WS for connection from edge devices.
-	serv.router.HandleFunc("/cloud/{id}/health", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
-	serv.router.HandleFunc("/cloud/{id}/flow/{flowId}/rest", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
-	serv.router.HandleFunc("/cloud/{id}/flow/{flowId}/ws", serv.cloudWsHandler)     // Endpoint for cloud WS connections.
-	serv.router.HandleFunc("/cloud/{id}/api/registry/{subComp}", serv.cloudHttpHandler)     // Endpoint for cloud WS connections.
-	serv.router.HandleFunc("/cloud/{id}/api/flow/context/{flowId}", serv.cloudHttpHandler)     // Endpoint for cloud WS connections.
+	serv.router.HandleFunc("/edge/{tunId}/register", serv.edgeRegistrationHandler) // WS for connection from edge devices.
+	serv.router.HandleFunc("/cloud/{tunId}/health", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
+	serv.router.HandleFunc("/cloud/{tunId}/flow/{flowId}/rest", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
+	serv.router.HandleFunc("/cloud/{tunId}/flow/{flowId}/ws", serv.cloudWsHandler)     // Endpoint for cloud WS connections.
+	serv.router.HandleFunc("/cloud/{tunId}/api/registry/{subComp}", serv.cloudHttpHandler)     // Endpoint for cloud WS connections.
+	serv.router.HandleFunc("/cloud/{tunId}/api/flow/context/{flowId}", serv.cloudHttpHandler)     // Endpoint for cloud WS connections.
 
 	serv.server.Handler = serv.router
 	log.Info("<HttpConn> HTTP router configured ")
@@ -61,17 +61,15 @@ func (serv *Server) edgeRegistrationHandler(w http.ResponseWriter, r *http.Reque
 		}
 	}()
 	vars := mux.Vars(r)
-	edgeConnId := vars["id"]
+	edgeConnId := vars["tunId"]
 	if edgeConnId == "" {
 		return
 	}
 
-	token := ""
-	ip := ""
+	edgeToken := GetEdgeToken(r)
+	ValidateEdgeToken(edgeToken,w)
 
-	log.Debug("<HttpConn> Registering new edge connection , id = ",edgeConnId)
-
-	authConf := tunnel.AuthConfig{}
+	authConf := tunnel.AuthConfig{AuthToken: edgeToken}
 
 	ws, err := brUpgrader.Upgrade(w, r, nil)
 
@@ -81,7 +79,7 @@ func (serv *Server) edgeRegistrationHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	serv.tunMan.RegisterEdgeConnection(edgeConnId,ws,token,ip,authConf)
+	serv.tunMan.RegisterEdgeConnection(edgeConnId,ws,edgeToken,"",authConf)
 }
 
 func (serv *Server) cloudHttpHandler(w http.ResponseWriter, r *http.Request) {
@@ -92,10 +90,14 @@ func (serv *Server) cloudHttpHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	vars := mux.Vars(r)
-	edgeConnId := vars["id"]
+	edgeConnId := vars["tunId"]
 	if edgeConnId == "" {
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
+
+	edgeToken := GetEdgeToken(r)
+	ValidateEdgeToken(edgeToken,w)
 
 	tunn,err := serv.tunMan.GetTunnelById(edgeConnId)
 	if err != nil {
@@ -117,7 +119,14 @@ func (serv *Server) cloudWsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	vars := mux.Vars(r)
-	edgeConnId := vars["id"]
+	edgeConnId := vars["tunId"]
+
+	if edgeConnId == "" {
+		w.WriteHeader(http.StatusNotFound)
+	}
+
+	edgeToken := GetEdgeToken(r)
+	ValidateEdgeToken(edgeToken,w)
 
 	edgeConn, err := serv.tunMan.GetTunnelById(edgeConnId)
 	if err != nil {
@@ -134,4 +143,24 @@ func (serv *Server) cloudWsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	edgeConn.RegisterCloudWsConn(ws)
+}
+
+func GetEdgeToken(r *http.Request)string {
+	uq := r.URL.Query()
+	edgeToken := uq.Get("tplex_token")
+	if edgeToken == "" {
+		edgeToken = r.Header.Get("X-TPlex-Token")
+	}
+	return edgeToken
+}
+
+func ValidateEdgeToken(edgeToken string , w http.ResponseWriter) {
+	if edgeToken == ""{
+		log.Info("<HttpConn> Edge dev registration for dev rejected , missing tplex token.")
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("token not found"))
+		return
+	}else {
+		log.Debug("<HttpConn> Registering new edge connection. ")
+	}
 }

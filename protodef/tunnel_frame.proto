@@ -8,6 +8,8 @@ message TunnelFrame {
     HTTP_REQ = 0;
     HTTP_RESP = 1;
     WS_MSG = 2;
+    WS_SUBSCRIBE = 3;
+    WS_UNSUBSCRIBE = 4;
   }
   MessageType msg_type  = 1;
   message StringArray {

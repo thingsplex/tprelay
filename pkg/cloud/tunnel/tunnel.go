@@ -96,9 +96,17 @@ func (conn *WsTunnel) StartEdgeMsgReader() {
 				log.Debug("Response signal was sent")
 
 			case tunframe.TunnelFrame_WS_MSG:
-				//TODO : broadcast to all cloud connections
-				log.Warning("Not implemented")
-				log.Debug(string(tunMsg.Payload))
+				log.Debug("Msg to broadcast :", string(tunMsg.Payload))
+
+				conn.cloudWsConnections.Range(func(key, value interface{}) bool {
+					wsConn,ok := value.(*websocket.Conn)
+					if !ok {
+						return false
+					}
+					wsConn.WriteMessage(websocket.TextMessage,tunMsg.Payload)
+					return true
+				})
+
 			default:
 				log.Info("Unsupported frame type")
 
@@ -174,6 +182,19 @@ func (conn *WsTunnel) SendHttpRequestAndWaitForResponse(w http.ResponseWriter, r
 		return fmt.Errorf("empty response message")
 
 	}
+	code := syncTransaction.responseMsg.RespCode
+	if code != 200 && code != 0 {
+		w.WriteHeader(int(code))
+	}
+	if syncTransaction.responseMsg != nil {
+		respHeaders := w.Header()
+		if syncTransaction.responseMsg.Headers != nil {
+			for k,v := range syncTransaction.responseMsg.Headers {
+				respHeaders[k] = v.Items
+			}
+		}
+	}
+
 	w.Write(syncTransaction.responseMsg.Payload)
 
 	return nil

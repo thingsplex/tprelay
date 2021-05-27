@@ -22,15 +22,24 @@ type TunClient struct {
 	connHeaders      http.Header // Should be used to configure additional metadata , like security tokens
 }
 
-func NewTunClient(host string, edgeConnId string, streamBufferSize int,headers http.Header) *TunClient {
-	return &TunClient{host: host, edgeConnId: edgeConnId, streamBufferSize: streamBufferSize,connHeaders: headers}
+func NewTunClient(host string, edgeConnId string, streamBufferSize int) *TunClient {
+	return &TunClient{host: host, edgeConnId: edgeConnId, streamBufferSize: streamBufferSize,connHeaders: http.Header{}}
+}
+
+func (tc *TunClient) SetEdgeToken(token string) {
+	tc.connHeaders.Set("X-TPlex-Token",token)
+}
+
+func (tc *TunClient) SetHeader(key,value string) {
+	tc.connHeaders.Set(key,value)
 }
 
 func (tc *TunClient) Connect() error {
+	// TODO : Introduce connection retry.
 	var err error
 	tc.stopSignal = make(chan bool)
 	address := fmt.Sprintf("%s/edge/%s/register", tc.host, tc.edgeConnId)
-	tc.wsConn, _, err = websocket.DefaultDialer.Dial(address, nil)
+	tc.wsConn, _, err = websocket.DefaultDialer.Dial(address, tc.connHeaders)
 	tc.IsRunning = true
 	if err == nil {
 		tc.IsConnected = true
@@ -55,6 +64,7 @@ func (tc *TunClient) Send(msg *tunframe.TunnelFrame) error {
 		log.Info("<edgeClient> Failed to parse proto message")
 		return err
 	}else {
+		// TODO : introduce write buffer/queue to avoid blocking by slow connection
 		return tc.wsConn.WriteMessage(websocket.BinaryMessage, binMsg)
 	}
 }
@@ -121,3 +131,4 @@ func (tc *TunClient) startMsgReader() {
 	}
 	log.Debug("<edgeClient> Msg reader stopped")
 }
+
