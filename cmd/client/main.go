@@ -4,7 +4,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/thingsplex/tprelay/pkg/edge"
 	"github.com/thingsplex/tprelay/pkg/proto/tunframe"
-	"net/http"
 	"os"
 	"os/signal"
 )
@@ -12,7 +11,7 @@ import (
 func main() {
 	log.SetLevel(log.DebugLevel)
 
-	tc := edge.NewTunClient("ws://localhost:8083","edge-dev-1",1,http.Header{})
+	tc := edge.NewTunClient("ws://localhost:8083","edge-dev-1",1)
 
 	if err := tc.Connect(); err != nil {
 		log.Errorf("Connect() error = %v, ", err)

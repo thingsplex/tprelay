@@ -183,16 +183,21 @@ func (conn *WsTunnel) SendHttpRequestAndWaitForResponse(w http.ResponseWriter, r
 
 	}
 	code := syncTransaction.responseMsg.RespCode
-	if code != 200 && code != 0 {
-		w.WriteHeader(int(code))
-	}
+
 	if syncTransaction.responseMsg != nil {
-		respHeaders := w.Header()
+		log.Debug("%+v",syncTransaction.responseMsg)
 		if syncTransaction.responseMsg.Headers != nil {
 			for k,v := range syncTransaction.responseMsg.Headers {
-				respHeaders[k] = v.Items
+				it := v.Items
+				if len(it)>0 {
+					w.Header().Set(k,it[0])
+					log.Info("Sending header ",k)
+				}
 			}
 		}
+	}
+	if code != 200 && code != 0 {
+		w.WriteHeader(int(code))
 	}
 
 	w.Write(syncTransaction.responseMsg.Payload)

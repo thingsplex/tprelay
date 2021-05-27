@@ -67,7 +67,9 @@ func (serv *Server) edgeRegistrationHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	edgeToken := GetEdgeToken(r)
-	ValidateEdgeToken(edgeToken,w)
+	if !IsEdgeTokenValid(edgeToken,w) {
+		return
+	}
 
 	authConf := tunnel.AuthConfig{AuthToken: edgeToken}
 
@@ -97,12 +99,21 @@ func (serv *Server) cloudHttpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	edgeToken := GetEdgeToken(r)
-	ValidateEdgeToken(edgeToken,w)
+	if !IsEdgeTokenValid(edgeToken,w) {
+		return
+	}
 
 	tunn,err := serv.tunMan.GetTunnelById(edgeConnId)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
+		return
 	}
+
+	if edgeToken != tunn.Token {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
 	err = tunn.SendHttpRequestAndWaitForResponse(w,r)
 	if err != nil {
 		w.WriteHeader(http.StatusBadGateway)
@@ -126,11 +137,18 @@ func (serv *Server) cloudWsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	edgeToken := GetEdgeToken(r)
-	ValidateEdgeToken(edgeToken,w)
+	if !IsEdgeTokenValid(edgeToken,w) {
+		return
+	}
 
 	edgeConn, err := serv.tunMan.GetTunnelById(edgeConnId)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if edgeToken != edgeConn.Token {
+		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
@@ -147,20 +165,20 @@ func (serv *Server) cloudWsHandler(w http.ResponseWriter, r *http.Request) {
 
 func GetEdgeToken(r *http.Request)string {
 	uq := r.URL.Query()
-	edgeToken := uq.Get("tplex_token")
+	edgeToken := uq.Get("tptun_token")
 	if edgeToken == "" {
 		edgeToken = r.Header.Get("X-TPlex-Token")
 	}
 	return edgeToken
 }
 
-func ValidateEdgeToken(edgeToken string , w http.ResponseWriter) {
+func IsEdgeTokenValid(edgeToken string , w http.ResponseWriter) bool {
 	if edgeToken == ""{
 		log.Info("<HttpConn> Edge dev registration for dev rejected , missing tplex token.")
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte("token not found"))
-		return
-	}else {
-		log.Debug("<HttpConn> Registering new edge connection. ")
+		return false
 	}
+	log.Debug("<HttpConn> Registering new edge connection. ")
+	return true
 }
