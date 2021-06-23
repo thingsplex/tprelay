@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
@@ -36,12 +37,19 @@ func (serv *Server) Configure() error {
 	log.Info("<HttpConn> Configuring HTTP router.")
 	serv.server = &http.Server{Addr: serv.config.BindAddress}
 	serv.router = mux.NewRouter()
+
+	serv.router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(fmt.Sprintf("ok;v=%s",serv.config.Version)))
+	})
+
 	serv.router.HandleFunc("/edge/{tunId}/register", serv.edgeRegistrationHandler) // WS for connection from edge devices.
 	serv.router.HandleFunc("/cloud/{tunId}/health", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
 	serv.router.HandleFunc("/cloud/{tunId}/flow/{flowId}/rest", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
 	serv.router.HandleFunc("/cloud/{tunId}/flow/{flowId}/ws", serv.cloudWsHandler)     // Endpoint for cloud WS connections.
-	serv.router.HandleFunc("/cloud/{tunId}/api/registry/{subComp}", serv.cloudHttpHandler)     // Endpoint for cloud WS connections.
-	serv.router.HandleFunc("/cloud/{tunId}/api/flow/context/{flowId}", serv.cloudHttpHandler)     // Endpoint for cloud WS connections.
+	serv.router.HandleFunc("/cloud/{tunId}/api/registry/{subComp}", serv.cloudHttpHandler)     // Registry API.
+	serv.router.HandleFunc("/cloud/{tunId}/api/flow/context/{flowId}", serv.cloudHttpHandler)     // Flow context API.
+
+
 
 	serv.server.Handler = serv.router
 	log.Info("<HttpConn> HTTP router configured ")
@@ -50,7 +58,10 @@ func (serv *Server) Configure() error {
 
 func (serv *Server) StartServer() {
 	log.Info("<HttpConn> Starting HTTP server.")
-	serv.server.ListenAndServe()
+	err := serv.server.ListenAndServe()
+	if err != nil {
+		log.Error("Can't start http server . Err :",err.Error())
+	}
 }
 
 func (serv *Server) edgeRegistrationHandler(w http.ResponseWriter, r *http.Request) {

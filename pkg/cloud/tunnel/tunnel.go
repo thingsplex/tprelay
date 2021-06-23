@@ -185,7 +185,7 @@ func (conn *WsTunnel) SendHttpRequestAndWaitForResponse(w http.ResponseWriter, r
 	code := syncTransaction.responseMsg.RespCode
 
 	if syncTransaction.responseMsg != nil {
-		log.Debug("%+v",syncTransaction.responseMsg)
+		//log.Debug("%+v",syncTransaction.responseMsg)
 		if syncTransaction.responseMsg.Headers != nil {
 			for k,v := range syncTransaction.responseMsg.Headers {
 				it := v.Items

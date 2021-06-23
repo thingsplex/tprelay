@@ -11,8 +11,8 @@ import (
 func main() {
 	log.SetLevel(log.DebugLevel)
 
-	tc := edge.NewTunClient("ws://localhost:8083","edge-dev-1",1)
-
+	tc := edge.NewTunClient("ws://localhost:8090","edge-dev-1",1)
+	tc.SetEdgeToken("token-12344")
 	if err := tc.Connect(); err != nil {
 		log.Errorf("Connect() error = %v, ", err)
 	}

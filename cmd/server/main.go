@@ -4,13 +4,24 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/thingsplex/tprelay/pkg/cloud"
 	"github.com/thingsplex/tprelay/pkg/cloud/tunnel"
+	"os"
 )
+
+
+var Version string
 
 func main() {
 	log.SetLevel(log.DebugLevel)
-	config := cloud.Config{
-		BindAddress: ":8083",
+	bindAddress := os.Getenv("BIND_ADDRESS")
+	if bindAddress == "" {
+		bindAddress = ":8090"
 	}
+
+	config := cloud.Config{
+		BindAddress: bindAddress,
+	}
+
+	log.Infof("------ Starting tprelay v = %s",Version)
 
 	tunMan := tunnel.NewManager()
 
