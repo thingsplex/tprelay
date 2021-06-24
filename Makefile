@@ -1,7 +1,7 @@
-version="0.1.1"
+version="0.1.2"
 
 build-go-amd64:
-	GOOS=linux GOARCH=amd64 go build -ldflags="main.Version=${version}" -o package/build/tprelay cmd/server/main.go
+	GOOS=linux GOARCH=amd64 go build -ldflags="-X main.Version=${version}" -o package/build/tprelay cmd/server/main.go
 
 package-docker:build-go-amd64
 	docker build -t thingsplex/tprelay:${version} -t thingsplex/tprelay:latest .

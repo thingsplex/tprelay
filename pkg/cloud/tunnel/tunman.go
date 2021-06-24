@@ -16,6 +16,7 @@ func NewManager() *Manager {
 
 func (man *Manager) RegisterEdgeConnection(id string, edgeConnection *websocket.Conn,token string,ipAddr string,authConfig AuthConfig) {
 	tun := NewWsTunnel(token,ipAddr,edgeConnection,authConfig)
+	tun.IsEdgeConnectionActive = true
 	man.tunnels.Store(id,tun)
 	go tun.StartEdgeMsgReader()
 }

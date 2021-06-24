@@ -24,6 +24,7 @@ type WsTunnel struct {
 	liveSyncTransactions sync.Map        //
 	cloudWsConnections   sync.Map        // Multiple
 	CloudConnAuth        AuthConfig      // Must be set by Edge connection
+	IsEdgeConnectionActive bool
 }
 
 type AuthConfig struct {
@@ -117,6 +118,7 @@ func (conn *WsTunnel) StartEdgeMsgReader() {
 			log.Debug("<edgeConn> Message of type = ", msgType)
 		}
 	}
+	conn.IsEdgeConnectionActive = false
 }
 
 // StartCloudWsMsgReader start loop that is reading message from cloud connection. One loop per connection.

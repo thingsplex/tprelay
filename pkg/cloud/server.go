@@ -43,13 +43,11 @@ func (serv *Server) Configure() error {
 	})
 
 	serv.router.HandleFunc("/edge/{tunId}/register", serv.edgeRegistrationHandler) // WS for connection from edge devices.
-	serv.router.HandleFunc("/cloud/{tunId}/health", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
+	serv.router.HandleFunc("/cloud/{tunId}/index", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
 	serv.router.HandleFunc("/cloud/{tunId}/flow/{flowId}/rest", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
 	serv.router.HandleFunc("/cloud/{tunId}/flow/{flowId}/ws", serv.cloudWsHandler)     // Endpoint for cloud WS connections.
 	serv.router.HandleFunc("/cloud/{tunId}/api/registry/{subComp}", serv.cloudHttpHandler)     // Registry API.
 	serv.router.HandleFunc("/cloud/{tunId}/api/flow/context/{flowId}", serv.cloudHttpHandler)     // Flow context API.
-
-
 
 	serv.server.Handler = serv.router
 	log.Info("<HttpConn> HTTP router configured ")
@@ -115,7 +113,7 @@ func (serv *Server) cloudHttpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tunn,err := serv.tunMan.GetTunnelById(edgeConnId)
-	if err != nil {
+	if err != nil || !tunn.IsEdgeConnectionActive {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -153,7 +151,7 @@ func (serv *Server) cloudWsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	edgeConn, err := serv.tunMan.GetTunnelById(edgeConnId)
-	if err != nil {
+	if err != nil || !edgeConn.IsEdgeConnectionActive {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
