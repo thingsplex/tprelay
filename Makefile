@@ -1,4 +1,4 @@
-version="0.1.2"
+version="0.1.3"
 
 build-go-amd64:
 	GOOS=linux GOARCH=amd64 go build -ldflags="-X main.Version=${version}" -o package/build/tprelay cmd/server/main.go

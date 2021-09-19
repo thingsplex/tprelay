@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"io/ioutil"
 	"net/http"
+	"runtime/debug"
 	"sync"
 	"time"
 )
@@ -46,9 +47,10 @@ func NewWsTunnel(token string, edgeConnIp string, edgeConnection *websocket.Conn
 	return &WsTunnel{StartedAt: time.Now(), Token: token, EdgeConnIp: edgeConnIp, edgeConnection: edgeConnection, CloudConnAuth: cloudConnAuth}
 }
 
-func (conn *WsTunnel) RegisterCloudWsConn(cConn *websocket.Conn) int64  {
+func (conn *WsTunnel) RegisterCloudWsConn(cConn *websocket.Conn,vars map[string]string) int64  {
 	connId := utils.GenerateRandomNumber()
 	conn.cloudWsConnections.Store(connId,cConn)
+	go conn.StartCloudWsMsgReader(connId,cConn,vars)
 	return connId
 }
 
@@ -122,8 +124,38 @@ func (conn *WsTunnel) StartEdgeMsgReader() {
 }
 
 // StartCloudWsMsgReader start loop that is reading message from cloud connection. One loop per connection.
-func (conn *WsTunnel) StartCloudWsMsgReader() {
-	// TODO : Set limit of allowed count of connection per tunnel.
+func (conn *WsTunnel) StartCloudWsMsgReader(connId int64,cConn *websocket.Conn,vars map[string]string) error {
+	log.Debug("<edgeConn> Starting cloud WS msg reader")
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error("<HttpConn> WS connection failed with PANIC")
+			log.Error(string(debug.Stack()))
+		}
+	}()
+	for {
+		msgType, msg, err := cConn.ReadMessage() // reading message from Edge devices
+		if err != nil {
+			log.Info("<edgeConn> WS Read error :", err)
+			break
+		}
+		if msgType == websocket.TextMessage {
+			newMsg := tunframe.TunnelFrame{
+				MsgType:   tunframe.TunnelFrame_WS_MSG,
+				Vars: vars,
+				Payload: msg,
+			}
+			binMsg , err := proto.Marshal(&newMsg)
+			if err != nil {
+				return err
+			}
+			conn.edgeConnection.WriteMessage(websocket.BinaryMessage,binMsg)
+		}else {
+			log.Info("<cloudWsConn> binary cloud message is not supported")
+		}
+	}
+	conn.cloudWsConnections.Delete(connId)
+	log.Debugf("<edgeConn> Remote WS connection %d has been close and removed ",connId)
+	return nil
 }
 
 // SendHttpRequestAndWaitForResponse sends http request over tunnel , blocks until it receives response from tunnel or times out
@@ -155,6 +187,7 @@ func (conn *WsTunnel) SendHttpRequestAndWaitForResponse(w http.ResponseWriter, r
 		ReqMethod: r.Method,
 		Payload:   body,
 	}
+
 
 	binMsg , err := proto.Marshal(&newMsg)
 	if err != nil {

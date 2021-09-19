@@ -169,7 +169,7 @@ func (serv *Server) cloudWsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	edgeConn.RegisterCloudWsConn(ws)
+	edgeConn.RegisterCloudWsConn(ws,vars)
 }
 
 func GetEdgeToken(r *http.Request)string {
