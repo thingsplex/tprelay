@@ -22,10 +22,10 @@ var (
 )
 
 type Server struct {
-	server         *http.Server
-	router         *mux.Router
-	config         Config
-	tunMan         *tunnel.Manager
+	server *http.Server
+	router *mux.Router
+	config Config
+	tunMan *tunnel.Manager
 }
 
 func NewServer(config Config, tunMan *tunnel.Manager) *Server {
@@ -39,15 +39,16 @@ func (serv *Server) Configure() error {
 	serv.router = mux.NewRouter()
 
 	serv.router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(fmt.Sprintf("ok;v=%s",serv.config.Version)))
+		w.Write([]byte(fmt.Sprintf("ok;v=%s", serv.config.Version)))
 	})
 
-	serv.router.HandleFunc("/edge/{tunId}/register", serv.edgeRegistrationHandler) // WS for connection from edge devices.
-	serv.router.HandleFunc("/cloud/{tunId}/index", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
-	serv.router.HandleFunc("/cloud/{tunId}/flow/{flowId}/rest", serv.cloudHttpHandler) // Endpoint for cloud HTTP requests.
-	serv.router.HandleFunc("/cloud/{tunId}/flow/{flowId}/ws", serv.cloudWsHandler)     // Endpoint for cloud WS connections.
-	serv.router.HandleFunc("/cloud/{tunId}/api/registry/{subComp}", serv.cloudHttpHandler)     // Registry API.
-	serv.router.HandleFunc("/cloud/{tunId}/api/flow/context/{flowId}", serv.cloudHttpHandler)     // Flow context API.
+	serv.router.HandleFunc("/edge/{tunId}/register", serv.edgeRegistrationHandler)            // WS for connection from edge devices.
+	serv.router.HandleFunc("/cloud/{tunId}/index", serv.cloudHttpHandler)                     // Endpoint for cloud HTTP requests.
+	serv.router.HandleFunc("/cloud/{tunId}/flow/{flowId}/rest", serv.cloudHttpHandler)        // Endpoint for cloud HTTP requests.
+	serv.router.HandleFunc("/cloud/{tunId}/flow/{flowId}/ws", serv.cloudWsHandler)            // Endpoint for cloud WS connections.
+	serv.router.HandleFunc("/cloud/{tunId}/api/registry/{subComp}", serv.cloudHttpHandler)    // Registry API.
+	serv.router.HandleFunc("/cloud/{tunId}/api/flow/context/{flowId}", serv.cloudHttpHandler) // Flow context API.
+	serv.router.PathPrefix("/cloud/{tunId}/static").HandlerFunc(serv.cloudHttpHandler)
 
 	serv.server.Handler = serv.router
 	log.Info("<HttpConn> HTTP router configured ")
@@ -58,7 +59,7 @@ func (serv *Server) StartServer() {
 	log.Info("<HttpConn> Starting HTTP server.")
 	err := serv.server.ListenAndServe()
 	if err != nil {
-		log.Error("Can't start http server . Err :",err.Error())
+		log.Error("Can't start http server . Err :", err.Error())
 	}
 }
 
@@ -76,7 +77,7 @@ func (serv *Server) edgeRegistrationHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	edgeToken := GetEdgeToken(r)
-	if !IsEdgeTokenValid(edgeToken,w) {
+	if !IsEdgeTokenValid(edgeToken, w) {
 		return
 	}
 
@@ -90,7 +91,7 @@ func (serv *Server) edgeRegistrationHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	serv.tunMan.RegisterEdgeConnection(edgeConnId,ws,edgeToken,"",authConf)
+	serv.tunMan.RegisterEdgeConnection(edgeConnId, ws, edgeToken, "", authConf)
 }
 
 func (serv *Server) cloudHttpHandler(w http.ResponseWriter, r *http.Request) {
@@ -108,11 +109,11 @@ func (serv *Server) cloudHttpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	edgeToken := GetEdgeToken(r)
-	if !IsEdgeTokenValid(edgeToken,w) {
+	if !IsEdgeTokenValid(edgeToken, w) {
 		return
 	}
 
-	tunn,err := serv.tunMan.GetTunnelById(edgeConnId)
+	tunn, err := serv.tunMan.GetTunnelById(edgeConnId)
 	if err != nil || !tunn.IsEdgeConnectionActive {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -123,10 +124,10 @@ func (serv *Server) cloudHttpHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = tunn.SendHttpRequestAndWaitForResponse(w,r)
+	err = tunn.SendHttpRequestAndWaitForResponse(w, r)
 	if err != nil {
 		w.WriteHeader(http.StatusBadGateway)
-		w.Write( []byte(err.Error()))
+		w.Write([]byte(err.Error()))
 	}
 
 }
@@ -146,7 +147,7 @@ func (serv *Server) cloudWsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	edgeToken := GetEdgeToken(r)
-	if !IsEdgeTokenValid(edgeToken,w) {
+	if !IsEdgeTokenValid(edgeToken, w) {
 		return
 	}
 
@@ -169,10 +170,10 @@ func (serv *Server) cloudWsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	edgeConn.RegisterCloudWsConn(ws,vars)
+	edgeConn.RegisterCloudWsConn(ws, vars)
 }
 
-func GetEdgeToken(r *http.Request)string {
+func GetEdgeToken(r *http.Request) string {
 	uq := r.URL.Query()
 	edgeToken := uq.Get("tptun_token")
 	if edgeToken == "" {
@@ -181,8 +182,8 @@ func GetEdgeToken(r *http.Request)string {
 	return edgeToken
 }
 
-func IsEdgeTokenValid(edgeToken string , w http.ResponseWriter) bool {
-	if edgeToken == ""{
+func IsEdgeTokenValid(edgeToken string, w http.ResponseWriter) bool {
+	if edgeToken == "" {
 		log.Info("<HttpConn> Edge dev registration for dev rejected , missing tplex token.")
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte("token not found"))
