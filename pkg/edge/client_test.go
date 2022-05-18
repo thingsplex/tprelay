@@ -7,7 +7,7 @@ import (
 )
 
 func TestTunClient_Connect(t *testing.T) {
-	tc := NewTunClient("ws://localhost:8083","test-1",1)
+	tc := NewTunClient("ws://localhost:8090", "test-1", 1)
 
 	if err := tc.Connect(); err != nil {
 		t.Errorf("Connect() error = %v, ", err)
@@ -28,6 +28,6 @@ func TestTunClient_Connect(t *testing.T) {
 	tc.Send(&msg)
 	tc.Close()
 
-	time.Sleep(time.Second*1)
+	time.Sleep(time.Second * 1)
 
 }
