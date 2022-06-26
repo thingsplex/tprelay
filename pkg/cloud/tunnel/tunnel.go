@@ -16,15 +16,15 @@ import (
 )
 
 type WsTunnel struct {
-	State                uint8 // new -> edge -> cloud -> new
-	StartedAt            time.Time
-	ExpiresAt            time.Time
-	Token                string // Rendezvous token used for matching Cloud connection with Edge connection
-	EdgeConnIp           string
-	edgeConnection       *websocket.Conn // only one connection per bridge
-	liveSyncTransactions sync.Map        //
-	cloudWsConnections   sync.Map        // Multiple
-	CloudConnAuth        AuthConfig      // Must be set by Edge connection
+	State                  uint8 // new -> edge -> cloud -> new
+	StartedAt              time.Time
+	ExpiresAt              time.Time
+	Token                  string // Rendezvous token used for matching Cloud connection with Edge connection
+	EdgeConnIp             string
+	edgeConnection         *websocket.Conn // only one connection per bridge
+	liveSyncTransactions   sync.Map        //
+	cloudWsConnections     sync.Map        // Multiple
+	CloudConnAuth          AuthConfig      // Must be set by Edge connection
 	IsEdgeConnectionActive bool
 }
 
@@ -47,14 +47,14 @@ func NewWsTunnel(token string, edgeConnIp string, edgeConnection *websocket.Conn
 	return &WsTunnel{StartedAt: time.Now(), Token: token, EdgeConnIp: edgeConnIp, edgeConnection: edgeConnection, CloudConnAuth: cloudConnAuth}
 }
 
-func (conn *WsTunnel) RegisterCloudWsConn(cConn *websocket.Conn,vars map[string]string) int64  {
+func (conn *WsTunnel) RegisterCloudWsConn(cConn *websocket.Conn, vars map[string]string) int64 {
 	connId := utils.GenerateRandomNumber()
-	conn.cloudWsConnections.Store(connId,cConn)
-	go conn.StartCloudWsMsgReader(connId,cConn,vars)
+	conn.cloudWsConnections.Store(connId, cConn)
+	go conn.StartCloudWsMsgReader(connId, cConn, vars)
 	return connId
 }
 
-func (conn *WsTunnel) RegisterCloudRestConn()  {
+func (conn *WsTunnel) RegisterCloudRestConn() {
 
 }
 
@@ -71,10 +71,10 @@ func (conn *WsTunnel) StartEdgeMsgReader() {
 		if msgType == websocket.TextMessage {
 			log.Info("<edgeConn> TextMessage type is not supported")
 		} else if msgType == websocket.BinaryMessage {
-			log.Debug("<edgeConn> New binary ws message from tunnel.len=",len(msg))
+			log.Debug("<edgeConn> New binary ws message from tunnel.len=", len(msg))
 			tunMsg := tunframe.TunnelFrame{}
 
-			if err := proto.Unmarshal(msg,&tunMsg); err != nil {
+			if err := proto.Unmarshal(msg, &tunMsg); err != nil {
 				log.Info("Failed to parse proto message")
 				continue
 			}
@@ -84,12 +84,12 @@ func (conn *WsTunnel) StartEdgeMsgReader() {
 					log.Debug("response message has empty correlation id")
 					continue
 				}
-				tranI,ok := conn.liveSyncTransactions.Load(tunMsg.CorrId)
+				tranI, ok := conn.liveSyncTransactions.Load(tunMsg.CorrId)
 				if !ok {
-					log.Debug("unregistered transaction , id = ",tunMsg.CorrId)
+					log.Debug("unregistered transaction , id = ", tunMsg.CorrId)
 					continue
 				}
-				trans , ok := tranI.(*syncTransaction)
+				trans, ok := tranI.(*syncTransaction)
 				if !ok {
 					log.Error("Can't cast transaction ")
 					continue
@@ -102,11 +102,11 @@ func (conn *WsTunnel) StartEdgeMsgReader() {
 				log.Debug("Msg to broadcast :", string(tunMsg.Payload))
 
 				conn.cloudWsConnections.Range(func(key, value interface{}) bool {
-					wsConn,ok := value.(*websocket.Conn)
+					wsConn, ok := value.(*websocket.Conn)
 					if !ok {
 						return false
 					}
-					wsConn.WriteMessage(websocket.TextMessage,tunMsg.Payload)
+					wsConn.WriteMessage(websocket.TextMessage, tunMsg.Payload)
 					return true
 				})
 
@@ -121,10 +121,11 @@ func (conn *WsTunnel) StartEdgeMsgReader() {
 		}
 	}
 	conn.IsEdgeConnectionActive = false
+	//TODO : Implement cleanup procedure for expired connections.
 }
 
 // StartCloudWsMsgReader start loop that is reading message from cloud connection. One loop per connection.
-func (conn *WsTunnel) StartCloudWsMsgReader(connId int64,cConn *websocket.Conn,vars map[string]string) error {
+func (conn *WsTunnel) StartCloudWsMsgReader(connId int64, cConn *websocket.Conn, vars map[string]string) error {
 	log.Debug("<edgeConn> Starting cloud WS msg reader")
 	defer func() {
 		if r := recover(); r != nil {
@@ -140,21 +141,21 @@ func (conn *WsTunnel) StartCloudWsMsgReader(connId int64,cConn *websocket.Conn,v
 		}
 		if msgType == websocket.TextMessage {
 			newMsg := tunframe.TunnelFrame{
-				MsgType:   tunframe.TunnelFrame_WS_MSG,
-				Vars: vars,
+				MsgType: tunframe.TunnelFrame_WS_MSG,
+				Vars:    vars,
 				Payload: msg,
 			}
-			binMsg , err := proto.Marshal(&newMsg)
+			binMsg, err := proto.Marshal(&newMsg)
 			if err != nil {
 				return err
 			}
-			conn.edgeConnection.WriteMessage(websocket.BinaryMessage,binMsg)
-		}else {
+			conn.edgeConnection.WriteMessage(websocket.BinaryMessage, binMsg)
+		} else {
 			log.Info("<cloudWsConn> binary cloud message is not supported")
 		}
 	}
 	conn.cloudWsConnections.Delete(connId)
-	log.Debugf("<edgeConn> Remote WS connection %d has been close and removed ",connId)
+	log.Debugf("<edgeConn> Remote WS connection %d has been close and removed ", connId)
 	return nil
 }
 
@@ -188,8 +189,7 @@ func (conn *WsTunnel) SendHttpRequestAndWaitForResponse(w http.ResponseWriter, r
 		Payload:   body,
 	}
 
-
-	binMsg , err := proto.Marshal(&newMsg)
+	binMsg, err := proto.Marshal(&newMsg)
 	if err != nil {
 		return err
 	}
@@ -202,10 +202,10 @@ func (conn *WsTunnel) SendHttpRequestAndWaitForResponse(w http.ResponseWriter, r
 		responseSignal: respSignalCh,
 	}
 
-	conn.liveSyncTransactions.Store(reqId,&syncTransaction)
+	conn.liveSyncTransactions.Store(reqId, &syncTransaction)
 
 	// TODO : configure write deadline
-	conn.edgeConnection.WriteMessage(websocket.BinaryMessage,binMsg)
+	conn.edgeConnection.WriteMessage(websocket.BinaryMessage, binMsg)
 
 	select {
 	case <-respSignalCh:
@@ -222,11 +222,11 @@ func (conn *WsTunnel) SendHttpRequestAndWaitForResponse(w http.ResponseWriter, r
 	if syncTransaction.responseMsg != nil {
 		//log.Debug("%+v",syncTransaction.responseMsg)
 		if syncTransaction.responseMsg.Headers != nil {
-			for k,v := range syncTransaction.responseMsg.Headers {
+			for k, v := range syncTransaction.responseMsg.Headers {
 				it := v.Items
-				if len(it)>0 {
-					w.Header().Set(k,it[0])
-					log.Info("Sending header ",k)
+				if len(it) > 0 {
+					w.Header().Set(k, it[0])
+					log.Info("Sending header ", k)
 				}
 			}
 		}
@@ -239,4 +239,3 @@ func (conn *WsTunnel) SendHttpRequestAndWaitForResponse(w http.ResponseWriter, r
 
 	return nil
 }
-
